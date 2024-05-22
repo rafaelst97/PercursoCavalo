@@ -1,73 +1,118 @@
 #include <iostream>
 #include <vector>
+#include <climits>
+#include <locale>
 using namespace std;
 
-// Tamanho do tabuleiro de xadrez
-#define N 8
+// Estrutura para representar um movimento do cavalo
+struct Movimento {
+    int vertical, horizontal;
+};
 
-// Função para verificar se uma posição (x, y) é válida no tabuleiro
-bool isValid(int x, int y, vector<vector<int>>& sol) {
-    return (x >= 0 && x < N && y >= 0 && y < N && sol[x][y] == -1);
+// Função para verificar se um movimento é válido dentro do tabuleiro
+bool movimentoValido(int vertical, int horizontal, vector<vector<int>>& tabuleiro, int tamanhoTabuleiro) {
+    return (vertical >= 0 && horizontal >= 0 && vertical < tamanhoTabuleiro && horizontal < tamanhoTabuleiro && tabuleiro[vertical][horizontal] == -1);
 }
 
-// Função utilitária para imprimir a solução
-void printSolution(vector<vector<int>>& sol) {
-    cout << "Solução:" << endl;
-    for (int i = 0; i < N; i++) {
-        for (int j = 0; j < N; j++)
-            cout << sol[i][j] << "\t";
-        cout << endl;
-    }
-}
+// Função para encontrar o próximo movimento com base na heurística de Warnsdorff
+int proximoMovimentoWarnsdorff(int x, int y, vector<vector<int>>& tabuleiro, int tamanhoTabuleiro) {
+    static int movimentoX[] = { 2, 1, -1, -2, -2, -1, 1, 2 };
+    static int movimentoY[] = { 1, 2, 2, 1, -1, -2, -2, -1 };
+    int minMovimentos = INT_MAX;
+    int proximoX = -1, proximoY = -1;
 
-// Função para resolver o problema do percurso do cavalo usando backtracking
-bool solveKTUtil(int x, int y, int movei, vector<vector<int>>& sol, int xMove[], int yMove[]) {
-    int k, next_x, next_y;
-    if (movei == N * N)
-        return true;
+    for (int i = 0; i < 8; i++) {
+        int newX = x + movimentoX[i];
+        int newY = y + movimentoY[i];
 
-    // Tenta todos os próximos movimentos do cavalo a partir da posição atual
-    for (k = 0; k < 8; k++) {
-        next_x = x + xMove[k];
-        next_y = y + yMove[k];
-        if (isValid(next_x, next_y, sol)) {
-            sol[next_x][next_y] = movei;
-            if (solveKTUtil(next_x, next_y, movei + 1, sol, xMove, yMove))
-                return true;
-            else
-                sol[next_x][next_y] = -1; // backtrack
+        if (movimentoValido(newX, newY, tabuleiro, tamanhoTabuleiro)) {
+            int numMovimentos = 0;
+            for (int j = 0; j < 8; j++) {
+                int adjX = newX + movimentoX[j];
+                int adjY = newY + movimentoY[j];
+                if (movimentoValido(adjX, adjY, tabuleiro, tamanhoTabuleiro)) {
+                    numMovimentos++;
+                }
+            }
+            if (numMovimentos < minMovimentos) {
+                minMovimentos = numMovimentos;
+                proximoX = newX;
+                proximoY = newY;
+            }
         }
     }
+
+    return proximoX * tamanhoTabuleiro + proximoY;
+}
+
+// Função recursiva para encontrar o percurso do cavalo usando backtracking com heurística de Warnsdorff
+bool encontrarPercursoCavaloWarnsdorff(int x, int y, int contadorMovimentos, vector<vector<int>>& tabuleiro, vector<Movimento>& movimentos, int tamanhoTabuleiro) {
+    if (contadorMovimentos == tamanhoTabuleiro * tamanhoTabuleiro)
+        return true;
+
+    for (int i = 0; i < 8; i++) {
+        int proximoMovimento = proximoMovimentoWarnsdorff(x, y, tabuleiro, tamanhoTabuleiro);
+        int newX = proximoMovimento / tamanhoTabuleiro;
+        int newY = proximoMovimento % tamanhoTabuleiro;
+
+        if (movimentoValido(newX, newY, tabuleiro, tamanhoTabuleiro)) {
+            tabuleiro[newX][newY] = contadorMovimentos;
+            movimentos.push_back({ newX, newY });
+
+            if (encontrarPercursoCavaloWarnsdorff(newX, newY, contadorMovimentos + 1, tabuleiro, movimentos, tamanhoTabuleiro))
+                return true;
+
+            tabuleiro[newX][newY] = -1;
+            movimentos.pop_back();
+        }
+    }
+
     return false;
 }
 
-// Função principal para resolver o problema do percurso do cavalo
-void solveKT() {
-    vector<vector<int>> sol(N, vector<int>(N, -1));
+// Função para resolver o percurso do cavalo usando a heurística de Warnsdorff
+void resolverPercursoCavaloWarnsdorff(int tamanhoTabuleiro, int inicioVertical, int inicioHorizontal) {
+    vector<vector<int>> tabuleiro(tamanhoTabuleiro, vector<int>(tamanhoTabuleiro, -1)); // Inicializa o tabuleiro com -1 (não visitado)
+    vector<Movimento> movimentos; // Lista de movimentos
 
-    // Possíveis movimentos do cavalo
-    int xMove[] = { 2, 1, -1, -2, -2, -1, 1, 2 };
-    int yMove[] = { 1, 2, 2, 1, -1, -2, -2, -1 };
+    tabuleiro[inicioVertical][inicioHorizontal] = 0; // Marca a posição inicial como visitada
+    movimentos.push_back({ inicioVertical, inicioHorizontal });
 
-    // Inicializando a posição do cavalo na solução
-    sol[0][0] = 0;
+    // Tenta encontrar o percurso do cavalo
+    if (encontrarPercursoCavaloWarnsdorff(inicioVertical, inicioHorizontal, 1, tabuleiro, movimentos, tamanhoTabuleiro)) {
+        // Se encontrou um percurso válido, mostra o tabuleiro com a sequência de movimentos
+        /*for (auto movimento : movimentos) {
+            cout << "(" << movimento.vertical << ", " << movimento.horizontal << ") -> ";
+        }
+        cout << "Fim" << endl;*/
 
-    // Começando do canto superior esquerdo do tabuleiro
-    if (solveKTUtil(0, 0, 1, sol, xMove, yMove)) {
-        cout << "Caminho percorrido pelo cavalo:" << endl;
-        // Imprime o tabuleiro com as casas numeradas de acordo com a ordem do cavalo
-        for (int i = 0; i < N; i++) {
-            for (int j = 0; j < N; j++)
-                cout << sol[i][j] << "\t";
+        // Mostra o tabuleiro com os números dos movimentos
+        for (int i = 0; i < tamanhoTabuleiro; i++) {
+            for (int j = 0; j < tamanhoTabuleiro; j++) {
+                cout << tabuleiro[i][j] << "\t";
+            }
             cout << endl;
         }
     }
     else {
-        cout << "Não existe solução para o problema." << endl;
+        cout << "Não foi possível encontrar um percurso válido." << endl;
     }
 }
 
 int main() {
-    solveKT();
+    // Define a localidade para exibir caracteres especiais corretamente
+    setlocale(LC_ALL, "");
+
+    int tamanhoTabuleiro;
+    int inicioVertical, inicioHorizontal;
+
+    // Solicita ao usuário o tamanho do tabuleiro e a posição inicial
+    cout << "Digite o tamanho do tabuleiro: ";
+    cin >> tamanhoTabuleiro;
+    cout << "Digite a posição inicial do cavalo (linha e coluna): ";
+    cin >> inicioVertical >> inicioHorizontal;
+
+    // Executa o algoritmo para resolver o percurso do cavalo
+    resolverPercursoCavaloWarnsdorff(tamanhoTabuleiro, inicioVertical, inicioHorizontal);
     return 0;
 }
