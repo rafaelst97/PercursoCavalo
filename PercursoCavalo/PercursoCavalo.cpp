@@ -114,5 +114,7 @@ int main() {
 
     // Executa o algoritmo para resolver o percurso do cavalo
     resolverPercursoCavaloWarnsdorff(tamanhoTabuleiro, inicioVertical, inicioHorizontal);
+
+    system("pause");
     return 0;
 }
